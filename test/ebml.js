@@ -10,7 +10,7 @@ describe('embl', function() {
                 assert.equal(buffer.length, vint.length);
             }
             it('should read the correct value for all 1 byte ints', function() {
-                for (var i = 0; i < 0x80; i++) {
+                for (var i = 0; i < 0x80 - 1; i++) {
                     readVint(new Buffer([i | 0x80]), i);
                 }
             });
@@ -22,33 +22,33 @@ describe('embl', function() {
             });
             it('should read the correct value for all 2 byte ints', function() {
                 for (var i = 0; i < 0x40; i++)
-                    for (j = 0; j < 0xff; j++) {
+                    for (j = 0; j < 0xff - 1; j++) {
                         readVint(new Buffer([i | 0x40, j]), (i << 8) + j);
                 }
             });
             it('should read the correct value for all 3 byte ints', function() {
                 for (var i = 0; i < 0x20; i++)
                     for (j = 0; j < 0xff; j += 2)
-                        for (k = 0; k < 0xff; k += 3) {
+                        for (k = 0; k < 0xff - 1; k += 3) {
                             readVint(new Buffer([i | 0x20, j, k]), (i << 16) + (j << 8) + k);
                 }
             });
             // not brute forcing any more bytes, takes sooo long
             it('should read the correct value for 4 byte int min/max values', function() {
                 readVint(new Buffer([0x10, 0x20, 0x00, 0x00]), Math.pow(2, 21));
-                readVint(new Buffer([0x1F, 0xFF, 0xFF, 0xFF]), Math.pow(2, 28) - 1);
+                readVint(new Buffer([0x1F, 0xFF, 0xFF, 0xFE]), Math.pow(2, 28) - 2);
             });
             it('should read the correct value for 5 byte int min/max values', function() {
                 readVint(new Buffer([0x08, 0x10, 0x00, 0x00, 0x00]), Math.pow(2, 28));
-                readVint(new Buffer([0x0F, 0xFF, 0xFF, 0xFF, 0xFF]), Math.pow(2, 35) - 1);
+                readVint(new Buffer([0x0F, 0xFF, 0xFF, 0xFF, 0xFE]), Math.pow(2, 35) - 2);
             });
             it('should read the correct value for 6 byte int min/max values', function() {
                 readVint(new Buffer([0x04, 0x08, 0x00, 0x00, 0x00, 0x00]), Math.pow(2, 35));
-                readVint(new Buffer([0x07, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]), Math.pow(2, 42) - 1);
+                readVint(new Buffer([0x07, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE]), Math.pow(2, 42) - 2);
             });
             it('should read the correct value for 7 byte int min/max values', function() {
                 readVint(new Buffer([0x02, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00]), Math.pow(2, 42));
-                readVint(new Buffer([0x03, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]), Math.pow(2, 49) - 1);
+                readVint(new Buffer([0x03, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE]), Math.pow(2, 49) - 2);
             });
             it('should read the correct value for 8 byte int min value', function() {
                 readVint(new Buffer([0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), Math.pow(2, 49));
@@ -63,6 +63,10 @@ describe('embl', function() {
             it('should return value -1 for more than max representable JS number (8 byte int max value)', function() {
                 readVint(new Buffer([0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]), -1);
             });
+            it('should return value -1 for unknown size', function() {
+                readVint(new Buffer([0x1F, 0xFF, 0xFF, 0xFF]), -1);
+                readVint(new Buffer([0x7F, 0xFF]), -1);
+            });
             it('should throw for 9+ byte int values', function() {
                 assert.throws(function() {
                     ebml.tools.readVint(new Buffer([0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF]));
@@ -70,19 +74,23 @@ describe('embl', function() {
             });
         });
         describe('#writeVint()', function() {
-            function writeVint(value, expected) {
-                var actual = ebml.tools.writeVint(value);
+            function writeVint(value, expected, minLength) {
+                var actual = ebml.tools.writeVint(value, minLength);
                 assert.equal(expected.toString('hex'), actual.toString('hex'));
             }
-            it('should throw when writing -1', function() {
+            it('should throw when writing too large values', function() {
                 assert.throws(function() {
-                    ebml.tools.writeVint(-1);
+                    ebml.tools.writeVint(Number.MAX_VALUE);
                 }, /Unrepresentable value/);
             });
             it('should write all 1 byte ints', function() {
                 for (var i = 0; i < 0x80 - 1; i++) {
                     writeVint(i, new Buffer([i | 0x80]));
                 }
+            });
+            it('should write special unknown size value', function() {
+                ebml.tools.writeVint(-1,
+                new Buffer([0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]));
             });
             it('should write 2 byte int min/max values', function() {
                 writeVint(Math.pow(2, 7) - 1, new Buffer([0x40, 0x7F]));
@@ -111,15 +119,9 @@ describe('embl', function() {
             it('should write the correct value for 8 byte int min value', function() {
                 writeVint(Math.pow(2, 49) - 1, new Buffer([0x01, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]));
             });
-            it('should write the correct value for the max representable JS number (2^53)', function() {
-                writeVint(Math.pow(2, 53), new Buffer([0x01, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]));
+            it('should write the correct value for the max representable JS number', function() {
+                writeVint(Number.MAX_SAFE_INTEGER, new Buffer([0x01, 0x1f, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]));
             });
-            // Can't prevent this, 2^53 + 1 === 2^53
-            // it('should throw for more than max representable JS number (2^53 + 1)', function() {
-            //     assert.throws(function() {
-            //         ebml.tools.writeVint(Math.pow(2, 53) + 1));
-            //     }, /Unrepresentable value/)
-            // })
             it('should throw for more than max representable JS number (8 byte int max value)', function() {
                 assert.throws(function() {
                     ebml.tools.writeVint(Math.pow(2, 56) + 1);
@@ -129,6 +131,10 @@ describe('embl', function() {
                 assert.throws(function() {
                     ebml.tools.writeVint(Math.pow(2, 56) + 1);
                 }, /Unrepresentable value/);
+            });
+            it('should write int with minimal 8-byte length', function() {
+                writeVint(Math.pow(2, 7) - 1,
+                new Buffer([0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7F]), 8);
             });
 
         });
