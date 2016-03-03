@@ -136,7 +136,31 @@ describe('embl', function() {
                 writeVint(Math.pow(2, 7) - 1,
                 new Buffer([0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7F]), 8);
             });
+        });
+        describe('#writeFloat()', function() {
+            function writeFloat(value, expected) {
+                var actual = ebml.tools.writeFloat(value);
+                assert.equal(expected.toString('hex'), actual.toString('hex'));
+            }
 
+            it('should write float', function() {
+                writeFloat(2.0,
+                new Buffer([0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]));
+                writeFloat(100.0,
+                new Buffer([0x40, 0x59, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]));
+            });
+        });
+
+        describe('#readFloat()', function() {
+            function readFloat(value, expected) {
+                var actual = ebml.tools.readFloat(value);
+                assert.equal(expected, actual);
+            }
+
+            it('should write float', function() {
+                readFloat(new Buffer([0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), 2.0);
+                readFloat(new Buffer([0x40, 0x59, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), 100.0);
+            });
         });
     });
 });
