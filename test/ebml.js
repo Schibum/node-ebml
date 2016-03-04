@@ -162,5 +162,29 @@ describe('embl', function() {
                 readFloat(new Buffer([0x40, 0x59, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), 100.0);
             });
         });
+
+        describe('#writeUInt()', function() {
+            function writeUInt(value, expected) {
+                var actual = ebml.tools.writeUInt(value);
+                assert.equal(expected.toString('hex'), actual.toString('hex'));
+            }
+
+            it('should write uint', function() {
+                writeUInt(3,
+                new Buffer([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03]));
+            });
+        });
+
+        describe('#readUint()', function() {
+            function readUInt(value, expected) {
+                var actual = ebml.tools.readUInt(value);
+                assert.equal(expected, actual);
+            }
+
+            it('should read uint', function() {
+                readUInt(new Buffer([0x00, 0x00, 0x03]), 3);
+            });
+        });
+
     });
 });
