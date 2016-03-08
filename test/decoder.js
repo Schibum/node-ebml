@@ -83,16 +83,21 @@ describe('embl', function() {
         it('should emit correct EBML tag events for master tags', function(done) {
             var decoder = new ebml.Decoder();
 
+            var cnt = 0;
             decoder.on('data', function(data) {
                 var state = data[0];
                 data = data[1];
-                assert.equal(state, 'start');
                 assert.equal(data.tag, 0x0a45dfa3);
                 assert.equal(data.tagStr, "1a45dfa3");
                 assert.equal(data.dataSize, 0);
                 assert.equal(data.type, 'm');
                 assert.equal(data.data, undefined);
-                done();
+                if (cnt++ === 0) {
+                  assert.equal(state, 'start');
+                } else {
+                  assert.equal(state, 'end');
+                  done();
+                }
             });
 
             decoder.write(new Buffer([0x1a, 0x45, 0xdf, 0xa3, 0x80]));
