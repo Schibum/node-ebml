@@ -93,10 +93,10 @@ describe('embl', function() {
                 assert.equal(data.type, 'm');
                 assert.equal(data.data, undefined);
                 if (cnt++ === 0) {
-                  assert.equal(state, 'start');
+                    assert.equal(state, 'start');
                 } else {
-                  assert.equal(state, 'end');
-                  done();
+                    assert.equal(state, 'end');
+                    done();
                 }
             });
 
@@ -123,6 +123,27 @@ describe('embl', function() {
             });
             decoder.write(new Buffer([0x1a, 0x45, 0xdf, 0xa3]));
             decoder.write(new Buffer([0x84, 0x42, 0x86, 0x81, 0x00]));
+        });
+
+        it('should close unknown-sized master tags', function(done) {
+            var decoder = new ebml.Decoder();
+
+            var states = [];
+            decoder.on('data', function(data) {
+                var state = data[0];
+                data = data[1];
+                states.push(state);
+                assert.equal(data.tag, 0x0a45dfa3);
+                assert.equal(data.dataSize, -1);
+                assert.equal(data.type, 'm');
+                if (states.length == 4) {
+                    assert.deepEqual(states, ['start', 'end', 'start', 'end']);
+                    done();
+                }
+            });
+
+            decoder.write(new Buffer([0x1a, 0x45, 0xdf, 0xa3, 0xff, 0x1a, 0x45, 0xdf, 0xa3, 0xff]));
+            decoder.end();
         });
     });
 });
